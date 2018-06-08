@@ -131,7 +131,7 @@ int g_test_global = 42; // Definition checked against declaration in libavformat
 
 int increment_global()
 {
-	return g_test_global + 5;
+	return g_test_global + 5; 
 }
 //********************************************
 

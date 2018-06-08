@@ -326,7 +326,7 @@
 //********************************************
 
 extern int g_test_global;
-extern int increment_global();
+extern int increment_global(); 
 
 //********************************************
 
