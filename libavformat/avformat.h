@@ -323,10 +323,24 @@
 #include "avio.h"
 #include "libavformat/version.h"
 
-//********************************************
+//************** Globals to use with the segmenter ******************************
+typedef int (*avro_cb_t) ( void *data );
+
+//add whatever else is needed from output AVFormatContext and SegmentContext
+// see the bottom of segment_end() (segment.c)
+typedef struct avro_event_tag
+{
+	avro_cb_t 	cb;
+	double 		start_time;
+	double 		end_time;
+	uint64_t 	start_time_realtime;
+	char		fname[64];
+} avro_event_t;
 
 extern int g_test_global;
 extern int increment_global(); 
+extern int increment_global4();
+extern int seg_register_avro_cb( int (*avro_cb_t) ( void *data ) );
 
 //********************************************
 

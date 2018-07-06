@@ -129,9 +129,28 @@ typedef struct SegmentContext {
 //********************************************
 int g_test_global = 42; // Definition checked against declaration in libavformat/avformat.h
 
+static avro_event_t avro_event;
+static int avro_cb_installed = 0;
+
+//need to register //int seg_avro_write_values_memory( SegmentDataContext_t *data  ) here
+int seg_register_avro_cb( avro_cb_t cb) //* pointer to avro callback, defined in segmenter*/
+{
+	avro_event.cb = cb;
+	avro_cb_installed = 1;
+	printf( ">>> Installed seg_register_avro_cb() \n");
+	return 0;
+}
+
+//FIXME: remove - Just for linkage testing
 int increment_global()
 {
 	return g_test_global + 5; 
+}
+
+//FIXME: remove - Just for linkage testing
+int increment_global4()
+{
+	return g_test_global + 4;
 }
 //********************************************
 
@@ -359,6 +378,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
     char buf[AV_TIMECODE_STR_SIZE];
     int i;
     int err;
+    SegmentListEntry *this_entry = NULL;
 
     if (!oc || !oc->pb)
         return AVERROR(EINVAL);
@@ -411,10 +431,21 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
             segment_list_print_entry(seg->list_pb, seg->list_type, &seg->cur_entry, s);
             avio_flush(seg->list_pb);
         }
+
     }
+
 
     av_log(s, AV_LOG_VERBOSE, "segment:'%s' count:%d ended\n",
            seg->avf->filename, seg->segment_count);
+//*******************************************
+//	printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
+	avro_event.start_time = seg->cur_entry.start_time;
+	avro_event.end_time = seg->cur_entry.end_time;
+	memset( avro_event.fname, '\0', sizeof(avro_event.fname) );
+	strncpy( avro_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
+	avro_event.start_time_realtime = s->start_time_realtime;
+//*******************************************
+
     seg->segment_count++;
 
     if (seg->increment_tc) {
@@ -432,6 +463,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
                     tc.start += (int)((seg->cur_entry.end_time - seg->cur_entry.start_time) * av_q2d(rate));/* increment timecode */
                     av_dict_set(&s->metadata, "timecode",
                                 av_timecode_make_string(&tc, buf, 0), 0);
+
                     break;
                 }
             }
@@ -441,10 +473,12 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
     }
 
 end:
-    ff_format_io_close(oc, &oc->pb);
+	printf( "+++++ Test global in libavformat %d\n", g_test_global );
 
-    printf( "+++++ Test global in libavformat %d\n", g_test_global );
-    return ret;
+	ff_format_io_close(oc, &oc->pb);
+//*******************************************
+    avro_event.cb( (void*) &avro_event );
+//*******************************************
 
     return ret;
 }
