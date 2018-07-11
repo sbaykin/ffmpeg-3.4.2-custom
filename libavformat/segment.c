@@ -141,7 +141,7 @@ int seg_register_avro_cb( avro_cb_t cb) //* pointer to avro callback, defined in
 	return 0;
 }
 
-//FIXME: remove - Just for linkage testing
+//FIXME: remove - Just for  linkage testing
 int increment_global()
 {
 	return g_test_global + 5; 
@@ -444,6 +444,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
 	memset( avro_event.fname, '\0', sizeof(avro_event.fname) );
 	strncpy( avro_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
 	avro_event.start_time_realtime = s->start_time_realtime;
+	avro_event.start_time_micros = s->start_time;
 //*******************************************
 
     seg->segment_count++;

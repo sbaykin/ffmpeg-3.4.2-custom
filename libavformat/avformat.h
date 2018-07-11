@@ -333,7 +333,8 @@ typedef struct avro_event_tag
 	avro_cb_t 	cb;
 	double 		start_time;
 	double 		end_time;
-	uint64_t 	start_time_realtime;
+	int64_t 	start_time_realtime;
+	int64_t     start_time_micros;
 	char		fname[64];
 } avro_event_t;
 
