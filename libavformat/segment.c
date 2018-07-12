@@ -367,7 +367,7 @@ static void segment_list_print_entry(AVIOContext      *list_ioctx,
     }
 }
 
-static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
+static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int stream_idx)
 {
     SegmentContext *seg = s->priv_data;
     AVFormatContext *oc = seg->avf;
@@ -379,6 +379,8 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
     int i;
     int err;
     SegmentListEntry *this_entry = NULL;
+
+    AVStream *stream = NULL;
 
     if (!oc || !oc->pb)
         return AVERROR(EINVAL);
@@ -438,15 +440,38 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
     av_log(s, AV_LOG_VERBOSE, "segment:'%s' count:%d ended\n",
            seg->avf->filename, seg->segment_count);
 //*******************************************
-//	printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
-	avro_event.start_time = seg->cur_entry.start_time;
-	avro_event.end_time = seg->cur_entry.end_time;
-	memset( avro_event.fname, '\0', sizeof(avro_event.fname) );
-	strncpy( avro_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
-	avro_event.start_time_realtime = s->start_time_realtime;
-	avro_event.start_time_micros = s->start_time;
-//*******************************************
+	//printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
+    {
 
+		avro_event.start_time = seg->cur_entry.start_time;
+		avro_event.end_time = seg->cur_entry.end_time;
+
+		memset( avro_event.fname, '\0', sizeof(avro_event.fname) );
+		strncpy( avro_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
+		avro_event.start_time_realtime = s->start_time_realtime;
+		avro_event.start_time_micros = s->start_time;
+
+		avro_event.nb_frames = seg->segment_frame_count;
+//		avro_event.first_pts = seg->times[0];
+//		avro_event.last_pts = seg->times[seg->nb_frames - 1];
+//
+//		printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
+		if( stream_idx != -1 )
+			stream = oc->streams[stream_idx];
+
+		if( stream == NULL )
+    	{
+    		puts("Can't get a video stream" );
+    		goto end;
+    	}
+//
+		avro_event.last_pkt_pts_plus_duration = (double) av_stream_get_end_pts( stream ) * av_q2d(stream->time_base);
+		avro_event.last_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
+		avro_event.timebase.den = stream->time_base.den;
+		avro_event.timebase.num = stream->time_base.num;
+
+    }
+//*******************************************
     seg->segment_count++;
 
     if (seg->increment_tc) {
@@ -474,9 +499,12 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last)
     }
 
 end:
-	printf( "+++++ Test global in libavformat %d\n", g_test_global );
+	puts( ">>>>>>>>>>>>>>>>" );
+
 
 	ff_format_io_close(oc, &oc->pb);
+
+
 //*******************************************
     avro_event.cb( (void*) &avro_event );
 //*******************************************
@@ -941,7 +969,7 @@ calc_times:
         if (seg->cur_entry.last_duration == 0)
             seg->cur_entry.end_time = (double)pkt->pts * av_q2d(st->time_base);
 
-        if ((ret = segment_end(s, seg->individual_header_trailer, 0)) < 0)
+        if ((ret = segment_end(s, seg->individual_header_trailer, 0, pkt->stream_index )) < 0)
             goto fail;
 
         if ((ret = segment_start(s, seg->individual_header_trailer)) < 0)
@@ -1010,14 +1038,14 @@ static int seg_write_trailer(struct AVFormatContext *s)
         goto fail;
 
     if (!seg->write_header_trailer) {
-        if ((ret = segment_end(s, 0, 1)) < 0)
+        if ((ret = segment_end(s, 0, 1, -1)) < 0)
             goto fail;
         if ((ret = open_null_ctx(&oc->pb)) < 0)
             goto fail;
         ret = av_write_trailer(oc);
         close_null_ctxp(&oc->pb);
     } else {
-        ret = segment_end(s, 1, 1);
+        ret = segment_end(s, 1, 1, -1);
     }
 fail:
     if (seg->list)

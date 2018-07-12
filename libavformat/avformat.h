@@ -336,6 +336,14 @@ typedef struct avro_event_tag
 	int64_t 	start_time_realtime;
 	int64_t     start_time_micros;
 	char		fname[64];
+	int         nb_frames;
+	int64_t     duration;
+	int64_t     first_pts;
+	int64_t		last_pts;
+	double		last_pkt_pts_plus_duration;
+	double		last_duration;;
+
+	AVRational  timebase;
 } avro_event_t;
 
 extern int g_test_global;
