@@ -129,17 +129,28 @@ typedef struct SegmentContext {
 //********************************************
 int g_test_global = 42; // Definition checked against declaration in libavformat/avformat.h
 
-static avro_event_t avro_event;
-static int avro_cb_installed = 0;
+static avro_end_event_t segment_end_event;
+static avro_start_event_t segment_start_event;
+static int avro_end_cb_installed = 0;
+static int avro_start_cb_installed = 0;
 
 //need to register //int seg_avro_write_values_memory( SegmentDataContext_t *data  ) here
-int seg_register_avro_cb( avro_cb_t cb) //* pointer to avro callback, defined in segmenter*/
+int seg_register_segment_end_cb( avro_cb_t cb) //* pointer to avro callback, defined in segmenter*/
 {
-	avro_event.cb = cb;
-	avro_cb_installed = 1;
-	printf( ">>> Installed seg_register_avro_cb() \n");
+	segment_end_event.cb = cb;
+	avro_end_cb_installed = 1;
+	printf( ">>> Installed avro_end_cb() \n");
 	return 0;
 }
+
+int seg_register_segment_start_cb( avro_cb_t cb) //* pointer to avro callback, defined in segmenter*/
+{
+	segment_start_event.cb = cb;
+	avro_start_cb_installed = 1;
+	printf( ">>> Installed avro_start_cb() \n");
+	return 0;
+}
+
 
 //FIXME: remove - Just for  linkage testing
 int increment_global()
@@ -294,6 +305,17 @@ static int segment_start(AVFormatContext *s, int write_header)
     }
 
     seg->segment_frame_count = 0;
+
+    //*******************************************
+
+    {
+    	gettimeofday(&segment_start_event.time_now, NULL);
+    	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
+    	segment_start_event.start_time_realtime = av_gettime();
+    	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now );
+    	segment_start_event.cb( (void*) &segment_start_event );
+    }
+
     return 0;
 }
 
@@ -443,15 +465,13 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
 	//printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
     {
 
-		avro_event.start_time = seg->cur_entry.start_time;
-		avro_event.end_time = seg->cur_entry.end_time;
+		segment_end_event.start_time = seg->cur_entry.start_time;
+		segment_end_event.end_time = seg->cur_entry.end_time;
 
-		memset( avro_event.fname, '\0', sizeof(avro_event.fname) );
-		strncpy( avro_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
-		avro_event.start_time_realtime = s->start_time_realtime;
-		avro_event.start_time_micros = s->start_time;
+		memset( segment_end_event.fname, '\0', sizeof(segment_end_event.fname) );
+		strncpy( segment_end_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
 
-		avro_event.nb_frames = seg->segment_frame_count;
+		segment_end_event.nb_frames = seg->segment_frame_count;
 //		avro_event.first_pts = seg->times[0];
 //		avro_event.last_pts = seg->times[seg->nb_frames - 1];
 //
@@ -465,10 +485,10 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
     		goto end;
     	}
 //
-		avro_event.last_pkt_pts_plus_duration = (double) av_stream_get_end_pts( stream ) * av_q2d(stream->time_base);
-		avro_event.last_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
-		avro_event.timebase.den = stream->time_base.den;
-		avro_event.timebase.num = stream->time_base.num;
+		segment_end_event.last_pkt_pts_plus_duration = (double) av_stream_get_end_pts( stream ) * av_q2d(stream->time_base);
+		segment_end_event.last_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
+		segment_end_event.timebase.den = stream->time_base.den;
+		segment_end_event.timebase.num = stream->time_base.num;
 
     }
 //*******************************************
@@ -506,7 +526,7 @@ end:
 
 
 //*******************************************
-    avro_event.cb( (void*) &avro_event );
+    segment_end_event.cb( (void*) &segment_end_event );
 //*******************************************
 
     return ret;
@@ -957,6 +977,14 @@ calc_times:
             av_ts2timestr(pkt->duration, &st->time_base),
             pkt->flags & AV_PKT_FLAG_KEY,
             pkt->stream_index == seg->reference_stream_index ? seg->frame_count : -1);
+
+//    if( (pkt->flags & AV_PKT_FLAG_KEY) && (seg->segment_frame_count == 0))
+//    { //this is the 1st packet and it has an i-frame
+//    	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
+//    	segment_start_event.start_time_realtime = av_gettime();
+//
+//    	segment_start_event.cb( (void*) &segment_start_event );
+//    }
 
     if (pkt->stream_index == seg->reference_stream_index &&
         (pkt->flags & AV_PKT_FLAG_KEY || seg->break_non_keyframes) &&
