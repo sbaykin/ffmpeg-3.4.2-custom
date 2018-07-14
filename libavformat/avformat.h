@@ -331,19 +331,16 @@ typedef int (*avro_cb_t) ( void *data );
 // see the bottom of segment_end() (segment.c)
 typedef struct avro_end_event_tag
 {
-	char		fname[64];
-	int         nb_frames;
-	double		last_pkt_pts_plus_duration;
-	double		last_duration;;
-	double 		start_time;
-	double 		end_time;
-	int64_t     duration;
-	int64_t     first_pts;
-	int64_t		last_pts;
+	char		fname[64]; //segment file name
+	int         nb_frames; //number of frames in a segment
+	double		last_pkt_duration; //duration of last packet
+	double 		start_time; //pts of the first packet
+	double 		end_time;   //pts of last packet
+	//int64_t     duration;   //duration in timebase units
 
 	AVRational  timebase;
 	time_t      tm;
-	struct timespec time_now;
+	struct timespec time_now_timespec;
 
 	avro_cb_t 	cb;
 } avro_end_event_t;
@@ -351,12 +348,12 @@ typedef struct avro_end_event_tag
 typedef struct avro_start_event_tag
 {
 	char		fname[64];
-	int64_t 	start_time_realtime;
-	int64_t     first_pts;
+	int64_t 	start_time_realtime_usec;
+	int64_t     first_pts_usec;
 
 	AVRational  timebase;
 	time_t      tm;
-	struct timespec time_now;
+	struct timespec time_now_timespec;
 
 	avro_cb_t 	cb;
 } avro_start_event_t;

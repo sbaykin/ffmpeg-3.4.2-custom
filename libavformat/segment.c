@@ -309,10 +309,14 @@ static int segment_start(AVFormatContext *s, int write_header)
     //*******************************************
 
     {
-    	gettimeofday(&segment_start_event.time_now, NULL);
+    	gettimeofday(&segment_start_event.time_now_timespec, NULL);
+
     	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
-    	segment_start_event.start_time_realtime = av_gettime();
-    	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now );
+
+    	segment_start_event.start_time_realtime_usec = av_gettime();
+
+    	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now_timespec );
+
     	segment_start_event.cb( (void*) &segment_start_event );
     }
 
@@ -462,7 +466,6 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
     av_log(s, AV_LOG_VERBOSE, "segment:'%s' count:%d ended\n",
            seg->avf->filename, seg->segment_count);
 //*******************************************
-	//printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
     {
 
 		segment_end_event.start_time = seg->cur_entry.start_time;
@@ -472,10 +475,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
 		strncpy( segment_end_event.fname, seg->avf->filename, strlen(seg->avf->filename) );
 
 		segment_end_event.nb_frames = seg->segment_frame_count;
-//		avro_event.first_pts = seg->times[0];
-//		avro_event.last_pts = seg->times[seg->nb_frames - 1];
 //
-//		printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
 		if( stream_idx != -1 )
 			stream = oc->streams[stream_idx];
 
@@ -485,10 +485,10 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
     		goto end;
     	}
 //
-		segment_end_event.last_pkt_pts_plus_duration = (double) av_stream_get_end_pts( stream ) * av_q2d(stream->time_base);
-		segment_end_event.last_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
+		segment_end_event.last_pkt_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
 		segment_end_event.timebase.den = stream->time_base.den;
 		segment_end_event.timebase.num = stream->time_base.num;
+		printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
 
     }
 //*******************************************
