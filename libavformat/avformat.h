@@ -349,10 +349,11 @@ typedef struct avro_start_event_tag
 {
 	char		fname[64];
 	int64_t 	start_time_realtime_usec;
-	int64_t     first_pts_usec;
+	//int64_t     first_pts_usec;
 
 	AVRational  timebase;
 	time_t      tm;
+	struct timeval tval_now;
 	struct timespec time_now_timespec;
 
 	avro_cb_t 	cb;

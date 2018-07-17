@@ -316,6 +316,7 @@ static int segment_start(AVFormatContext *s, int write_header)
     	segment_start_event.start_time_realtime_usec = av_gettime();
 
     	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now_timespec );
+    	gettimeofday( &segment_start_event.tval_now, NULL );
 
     	segment_start_event.cb( (void*) &segment_start_event );
     }
@@ -411,7 +412,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
     if (!oc || !oc->pb)
         return AVERROR(EINVAL);
 
-    printf( "+++++ In segment_end()\n");
+//    printf( "+++++ In segment_end()\n");
 
     av_write_frame(oc, NULL); /* Flush any buffered data (fragmented mp4) */
     if (write_trailer)
@@ -488,7 +489,7 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
 		segment_end_event.last_pkt_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
 		segment_end_event.timebase.den = stream->time_base.den;
 		segment_end_event.timebase.num = stream->time_base.num;
-		printf( " >>> Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.start_time, seg->avf->filename);
+		printf( " ##### Start: %f, End: %f Name: %s\n", seg->cur_entry.start_time, seg->cur_entry.end_time, seg->avf->filename);
 
     }
 //*******************************************
