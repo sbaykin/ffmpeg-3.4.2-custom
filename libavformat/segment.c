@@ -309,14 +309,13 @@ static int segment_start(AVFormatContext *s, int write_header)
     //*******************************************
 
     {
-    	gettimeofday(&segment_start_event.time_now_timespec, NULL);
-
     	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
-
-    	segment_start_event.start_time_realtime_usec = av_gettime();
-
+    	//get timespec (sec, nanosec) for segment start
     	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now_timespec );
+    	//get calendar time for segment start (sec, microsec)
     	gettimeofday( &segment_start_event.tval_now, NULL );
+    	//get calendar time for segment start in microsec
+    	segment_start_event.start_time_realtime_usec = av_gettime();
 
     	segment_start_event.cb( (void*) &segment_start_event );
     }
