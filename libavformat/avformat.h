@@ -336,11 +336,13 @@ typedef int (*avro_cb_t) ( void *data );
  	double		last_pkt_duration; //duration of last packet
  	double 		start_time; //pts of the first packet
  	double 		end_time;   //pts of last packet
- 	//int64_t     duration;   //duration in timebase units
+ 	int64_t     epoch_usec;   //duration in timebase units
+ 	struct timeval     epoch_tval;   //duration in timebase units
 
  	AVRational  timebase;
  	time_t      tm;
  	struct timespec time_now_timespec;
+
 
  	avro_cb_t 	cb;
  } avro_end_event_t;

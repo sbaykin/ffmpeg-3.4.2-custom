@@ -133,6 +133,9 @@ static avro_end_event_t segment_end_event;
 static avro_start_event_t segment_start_event;
 static int avro_end_cb_installed = 0;
 static int avro_start_cb_installed = 0;
+static int first_pts_done = 0;
+static int64_t epoch_usec = 0;
+static struct timeval epoch_tval;
 
 //need to register //int seg_avro_write_values_memory( SegmentDataContext_t *data  ) here
 int seg_register_segment_end_cb( avro_cb_t cb) //* pointer to avro callback, defined in segmenter*/
@@ -307,8 +310,10 @@ static int segment_start(AVFormatContext *s, int write_header)
     seg->segment_frame_count = 0;
 
     //*******************************************
+    {	//This is NOT executed at start of seg->segment_count == 0
+//    	printf(">>>> IN LIBAVFORMAT (segment_start_event.cb) %d\n", seg->segment_count);
+//      For all practical purposes walltime of 1st PTS of frame 0 can be treated as local epoch
 
-    {
     	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
     	//get timespec (sec, nanosec) for segment start
     	clock_gettime( CLOCK_REALTIME, &segment_start_event.time_now_timespec );
@@ -485,6 +490,8 @@ static int segment_end(AVFormatContext *s, int write_trailer, int is_last, int s
     		goto end;
     	}
 //
+		segment_end_event.epoch_usec = epoch_usec;
+		memcpy( &segment_end_event.epoch_tval, &epoch_tval, sizeof( struct timeval) );
 		segment_end_event.last_pkt_duration = (double) seg->cur_entry.last_duration * av_q2d(stream->time_base) ;
 		segment_end_event.timebase.den = stream->time_base.den;
 		segment_end_event.timebase.num = stream->time_base.num;
@@ -972,19 +979,31 @@ calc_times:
         }
     }
 
+#if 1
+    if( first_pts_done == 0 ) //fix real time of pts of the very first frame
+    {
+        int64_t this_avgt = av_gettime();
+        time_t this_sec = this_avgt / 1000000;
+        struct tm this_ti;
+        localtime_r(&this_sec, &this_ti);
+        epoch_usec = (int64_t)(this_ti.tm_hour * 3600 + this_ti.tm_min * 60 + this_ti.tm_sec) * 1000000 + (this_avgt % 1000000);
+        gettimeofday( &epoch_tval, NULL);
+        first_pts_done = 1;
+    }
+
     ff_dlog(s, "packet stream:%d pts:%s pts_time:%s duration_time:%s is_key:%d frame:%d\n",
             pkt->stream_index, av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, &st->time_base),
             av_ts2timestr(pkt->duration, &st->time_base),
             pkt->flags & AV_PKT_FLAG_KEY,
             pkt->stream_index == seg->reference_stream_index ? seg->frame_count : -1);
+#else
+    printf( "packet stream:%d pts:%s pts_time:%s duration_time:%s is_key:%d frame:%d\n",
+            pkt->stream_index, av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, &st->time_base),
+            av_ts2timestr(pkt->duration, &st->time_base),
+            pkt->flags & AV_PKT_FLAG_KEY,
+            pkt->stream_index == seg->reference_stream_index ? seg->frame_count : -1);
 
-//    if( (pkt->flags & AV_PKT_FLAG_KEY) && (seg->segment_frame_count == 0))
-//    { //this is the 1st packet and it has an i-frame
-//    	strncpy( segment_start_event.fname, s->filename, strlen( s->filename ));
-//    	segment_start_event.start_time_realtime = av_gettime();
-//
-//    	segment_start_event.cb( (void*) &segment_start_event );
-//    }
+#endif
 
     if (pkt->stream_index == seg->reference_stream_index &&
         (pkt->flags & AV_PKT_FLAG_KEY || seg->break_non_keyframes) &&
